@@ -56,6 +56,9 @@ Clean container (no GTK/GJS/packages installed):
 
 ```bash
 packaging/test-appimage.sh dist/Junction-*.AppImage
+
+# Minimum supported target
+TEST_IMAGE=ubuntu:26.04 packaging/test-appimage.sh dist/Junction-*.AppImage
 ```
 
 GUI smoke test on the host, isolated from any running instance:
