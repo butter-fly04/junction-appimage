@@ -39,10 +39,11 @@ only zstd.  Level 22 saves under 10 KB on this image, so 19 is the default.
 ## GitHub Actions
 
 `.github/workflows/build.yml` runs on every push to `main`, weekly on a
-schedule, and on demand. It resolves the newest Junction tag, builds and
-smoke-tests the AppImage in rootless Podman, and publishes the AppImage plus
-its SHA-256 as a GitHub release tagged with the upstream tag. Scheduled runs
-skip tags that already have a release.
+schedule, and on demand. It resolves the newest Junction tag, builds the
+AppImage in rootless Podman, smoke-tests it in clean Fedora 44 and Ubuntu 26.04
+containers, and publishes the AppImage plus its SHA-256 as a GitHub release
+tagged with the upstream tag. Scheduled runs skip tags that already have a
+release.
 
 Use **Actions → Build Junction AppImage → Run workflow** to build a specific
 tag or force a rebuild.
