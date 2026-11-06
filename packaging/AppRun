@@ -1,0 +1,111 @@
+#!/bin/sh
+# AppRun for the Junction AppImage.
+#
+# Sets up the bundled GJS/GObject/GTK/libadwaita environment, points GJS at the
+# bundled typelibs/schemas/icons, then launches Junction.
+set -eu
+
+HERE="$(CDPATH= cd -- "$(dirname -- "$(readlink -f "$0")")" && pwd)"
+# Always resolve the bundle from AppRun's real location.  A stale APPDIR in the
+# caller's environment (for example from a previously mounted AppImage) must not
+# redirect us to a different bundle.
+APPDIR="$HERE"
+export APPDIR
+
+export PATH="$APPDIR/usr/bin:$PATH"
+export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export GI_TYPELIB_PATH="$APPDIR/usr/lib64/girepository-1.0:$APPDIR/usr/lib/girepository-1.0${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
+export GSETTINGS_SCHEMA_DIR="$APPDIR/usr/share/glib-2.0/schemas"
+export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+export GIO_MODULE_DIR="$APPDIR/usr/lib64/gio/modules"
+export GTK_PATH="$APPDIR/usr/lib64/gtk-4.0:$APPDIR/usr/lib/gtk-4.0"
+
+# ---------------------------------------------------------------------------
+# GJS private typelibs
+# ---------------------------------------------------------------------------
+# libgjs was patched to resolve its private typelib directory through
+# /tmp/.junction instead of the build-time /usr/lib64/gjs.  Point that fixed
+# path at this AppImage mount so a host-installed gjs cannot supply a
+# mismatched GjsPrivate typelib.
+link_fixed() {
+  link="$1"
+  target="$2"
+  if [ -L "$link" ]; then
+    if [ "$(stat -c %u "$link" 2>/dev/null || echo unknown)" != "$(id -u)" ]; then
+      echo "Junction: $link exists and belongs to another user" >&2
+      echo "Junction: remove it or run Junction as that user" >&2
+      exit 1
+    fi
+    ln -sfn "$target" "$link"
+  elif [ -e "$link" ]; then
+    echo "Junction: $link exists and is not a symlink" >&2
+    exit 1
+  else
+    ln -s "$target" "$link"
+  fi
+}
+
+if [ -d "$APPDIR/usr/lib64/gjs/girepository-1.0" ]; then
+  link_fixed /tmp/.junction "$APPDIR/usr/lib64/gjs"
+fi
+
+# ---------------------------------------------------------------------------
+# GdkPixbuf loader cache
+# ---------------------------------------------------------------------------
+# The cache contains absolute paths to the loaders, so it has to be generated
+# for the current AppImage mount rather than shipped from the build tree.
+# gdk-pixbuf 2.44 has built-in loaders and ships no .so modules, in which case
+# there is no cache to generate.
+CACHE_BASE="${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/junction-appimage"
+LOADER_DIR="$APPDIR/usr/lib64/gdk-pixbuf-2.0/2.10.0/loaders"
+if [ -d "$LOADER_DIR" ] && \
+   [ -n "$(find "$LOADER_DIR" -maxdepth 1 -name '*.so' -print -quit 2>/dev/null)" ]; then
+  mkdir -p "$CACHE_BASE"
+  CACHE_KEY="$(printf '%s' "$APPDIR" | cksum | cut -d' ' -f1)"
+  CACHE_FILE="$CACHE_BASE/loaders-$CACHE_KEY.cache"
+  if [ ! -s "$CACHE_FILE" ]; then
+    GDK_PIXBUF_MODULEDIR="$LOADER_DIR" \
+      "$APPDIR/usr/bin/gdk-pixbuf-query-loaders" > "$CACHE_FILE" 2>/dev/null || true
+  fi
+  [ -s "$CACHE_FILE" ] && export GDK_PIXBUF_MODULE_FILE="$CACHE_FILE"
+fi
+
+# ---------------------------------------------------------------------------
+# Self-test used by packaging/test-appimage.sh
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--junction-self-test" ]; then
+  TEST="$(mktemp "${TMPDIR:-/tmp}/junction-self-test-XXXXXX.js")"
+  cat > "$TEST" <<'JS'
+import Gio from "gi://Gio";
+import GLib from "gi://GLib";
+import Gtk from "gi://Gtk?version=4.0";
+import Adw from "gi://Adw";
+import Gdk from "gi://Gdk";
+import GioUnix from "gi://GioUnix";
+import Xdp from "gi://Xdp";
+import XdpGtk4 from "gi://XdpGtk4";
+
+const appdir = GLib.getenv("APPDIR");
+
+// This is exactly the initialisation done by the installed launcher; it also
+// registers the compiled GResource.
+imports.package.init({
+  name: "re.sonny.Junction",
+  version: "1.13",
+  prefix: appdir + "/usr",
+  libdir: appdir + "/usr/lib64",
+  datadir: appdir + "/usr/share",
+});
+
+await import("resource:///re/sonny/Junction/main.js");
+print("junction self-test: modules and resources OK");
+JS
+  set +e
+  "$APPDIR/usr/bin/gjs" -m "$TEST"
+  rc=$?
+  set -e
+  rm -f "$TEST"
+  exit "$rc"
+fi
+
+exec "$APPDIR/usr/bin/junction" "$@"
