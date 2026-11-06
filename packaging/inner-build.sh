@@ -89,6 +89,12 @@ bundle_gjs() {
     [ -e "$f" ] && cp -a "$f" "$APPDIR/usr/lib/" 2>/dev/null || true
   done
 
+  # Junction runs `gio mime ...` to register itself as a default handler.
+  # Fedora's host provides /usr/bin/gio, but minimal Ubuntu images do not.
+  local gio
+  gio="$(command -v gio)"
+  install -Dm755 "$gio" "$APPDIR/usr/bin/gio"
+
   # GJS ships its private GObject-Introspection bindings in a separate
   # directory.  They must be present both in the normal typelib path (for
   # hosts without gjs) and in the package-private path that pkg.init()
@@ -140,7 +146,7 @@ bundle_data() {
   # Exact transitive typelib closure of Gtk 4.0 + Adw 1 + Xdp 1.0 + XdpGtk4
   # + GioUnix, as reported by g-ir-inspect.
   local -a typelibs=(
-    GLib-2.0 GObject-2.0 Gio-2.0 GioUnix-2.0 GModule-2.0
+    GLib-2.0 GObject-2.0 Gio-2.0 GioUnix-2.0 GLibUnix-2.0 GModule-2.0
     Gtk-4.0 Gdk-4.0 Gsk-4.0 GdkPixbuf-2.0
     Adw-1 Xdp-1.0 XdpGtk4-1.0
     Pango-1.0 PangoCairo-1.0 cairo-1.0 Graphene-1.0
