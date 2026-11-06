@@ -52,7 +52,7 @@ overridden to layer on an existing Fedora 44 image.
 ## 3. Reproducing the build
 
 ```bash
-cd junction
+cd junction-appimage
 ./build.sh fedora44
 ```
 
