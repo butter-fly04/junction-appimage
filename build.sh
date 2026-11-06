@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # Host-side driver. All builds happen in a rootless Podman container.
+#
+# The CI workflow calls this script with JUNCTION_TAG set to the newest
+# upstream tag and caches tools/ between runs. It can be run locally without
+# any CI-specific environment.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
