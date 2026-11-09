@@ -62,6 +62,11 @@ build_app() {
   DESTDIR="$APPDIR" ninja -C "$BUILD" install
 }
 
+patch_source() {
+  log "Resolving the integrated desktop-file id at runtime"
+  python3 "$PACKAGING/patch-desktop-id.py" "$SRC/src/welcome.js"
+}
+
 patch_paths() {
   log "Making installed paths relocatable"
   python3 "$PACKAGING/patch-config.py" "$APPDIR"
@@ -342,6 +347,7 @@ make_appimage() {
   echo "$outfile"
 }
 
+patch_source
 build_app
 patch_paths
 bundle_gjs

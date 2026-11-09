@@ -94,3 +94,9 @@ usr/lib                                 bundled ELF closure
   why the bundled `XDG_DATA_DIRS` keeps the host entries after `$APPDIR`.
 - The `bundle-libs.py` closure never copies `libc`, `ld-linux`, `libnss_*` or
   the other host-critical libraries.
+- Upstream hardcodes `re.sonny.Junction.desktop` when it calls `gio mime`.
+  Integration tools such as Gear Lever name the desktop file after the AppImage
+  (`junction.appimage` → `junction.desktop`), so the hardcoded id names no file
+  and links fall back to the previous browser on every Junction start.
+  `packaging/patch-desktop-id.py` resolves the entry that launches `$APPIMAGE`
+  at runtime and keeps the upstream id only as a fallback.
